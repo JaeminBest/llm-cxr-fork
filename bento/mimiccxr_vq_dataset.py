@@ -8,7 +8,7 @@ import _pickle as cPickle
 import random
 from typing import List
 
-from .consts import RESPONSE_KEY_NL
+from consts import RESPONSE_KEY_NL
 
 
 class bcolors:

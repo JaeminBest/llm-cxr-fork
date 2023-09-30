@@ -16,8 +16,17 @@ from transformers.utils import is_tf_available
 if is_tf_available():
     import tensorflow as tf
 
-from .consts import END_KEY, PROMPT_FOR_GENERATION_FORMAT, PROMPT_FOR_GENERATION_FORMAT_NOINPUT, RESPONSE_KEY
-from .mimiccxr_vq_dataset import get_extract_vq_fun, get_inject_vq_fun, CXR_VQ_VQ_REPLACE_TEMPLATE
+from .consts import (
+    END_KEY,
+    PROMPT_FOR_GENERATION_FORMAT,
+    PROMPT_FOR_GENERATION_FORMAT_NOINPUT,
+    RESPONSE_KEY,
+)
+from .mimiccxr_vq_dataset import (
+    get_extract_vq_fun,
+    get_inject_vq_fun,
+    CXR_VQ_VQ_REPLACE_TEMPLATE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +42,14 @@ def load_model_tokenizer_for_generate(
     Returns:
         Tuple[PreTrainedModel, PreTrainedTokenizer]: model and tokenizer
     """
-    tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path, padding_side="left")
+    tokenizer = AutoTokenizer.from_pretrained(
+        pretrained_model_name_or_path, padding_side="left"
+    )
     model = AutoModelForCausalLM.from_pretrained(
-        pretrained_model_name_or_path, device_map="auto", torch_dtype=torch.bfloat16, trust_remote_code=True
+        pretrained_model_name_or_path,
+        device_map="auto",
+        torch_dtype=torch.bfloat16,
+        trust_remote_code=True,
     )
     return model, tokenizer
 
@@ -58,13 +72,21 @@ def get_special_token_id(tokenizer: PreTrainedTokenizer, key: str) -> int:
     """
     token_ids = tokenizer.encode(key)
     if len(token_ids) > 1:
-        raise ValueError(f"Expected only a single token for '{key}' but found {token_ids}")
+        raise ValueError(
+            f"Expected only a single token for '{key}' but found {token_ids}"
+        )
     return token_ids[0]
 
 
 class InstructionTextGenerationPipeline(Pipeline):
     def __init__(
-        self, *args, do_sample: bool = True, max_new_tokens: int = 256, top_p: float = 0.92, top_k: int = 0, **kwargs
+        self,
+        *args,
+        do_sample: bool = True,
+        max_new_tokens: int = 256,
+        top_p: float = 0.92,
+        top_k: int = 0,
+        **kwargs,
     ):
         """Initialize the pipeline
 
@@ -76,25 +98,36 @@ class InstructionTextGenerationPipeline(Pipeline):
             top_k (int, optional): The number of highest probability vocabulary tokens to keep for top-k-filtering.
                 Defaults to 0.
         """
-        super().__init__(*args, do_sample=do_sample, max_new_tokens=max_new_tokens, top_p=top_p, top_k=top_k,
-                         **kwargs)
+        super().__init__(
+            *args,
+            do_sample=do_sample,
+            max_new_tokens=max_new_tokens,
+            top_p=top_p,
+            top_k=top_k,
+            **kwargs,
+        )
 
-    def _sanitize_parameters(self,
-                             return_full_text: bool = None,
-                             **generate_kwargs):
+    def _sanitize_parameters(self, return_full_text: bool = None, **generate_kwargs):
         preprocess_params = {}
 
         # newer versions of the tokenizer configure the response key as a special token.  newer versions still may
         # append a newline to yield a single token.  find whatever token is configured for the response key.
         tokenizer_response_key = next(
-            (token for token in self.tokenizer.additional_special_tokens if token.startswith(RESPONSE_KEY)), None
+            (
+                token
+                for token in self.tokenizer.additional_special_tokens
+                if token.startswith(RESPONSE_KEY)
+            ),
+            None,
         )
 
         response_key_token_id = None
         end_key_token_id = None
         if tokenizer_response_key:
             try:
-                response_key_token_id = get_special_token_id(self.tokenizer, tokenizer_response_key)
+                response_key_token_id = get_special_token_id(
+                    self.tokenizer, tokenizer_response_key
+                )
                 end_key_token_id = get_special_token_id(self.tokenizer, END_KEY)
 
                 # Ensure generation stops once it generates "### End"
@@ -105,7 +138,7 @@ class InstructionTextGenerationPipeline(Pipeline):
         forward_params = generate_kwargs
         postprocess_params = {
             "response_key_token_id": response_key_token_id,
-            "end_key_token_id": end_key_token_id
+            "end_key_token_id": end_key_token_id,
         }
 
         if return_full_text is not None:
@@ -116,19 +149,25 @@ class InstructionTextGenerationPipeline(Pipeline):
     def preprocess(self, instruction_text, **generate_kwargs):
         instruction_text, input_text = instruction_text
         if input_text is None:
-            prompt_text = PROMPT_FOR_GENERATION_FORMAT_NOINPUT.format(instruction=instruction_text)
+            prompt_text = PROMPT_FOR_GENERATION_FORMAT_NOINPUT.format(
+                instruction=instruction_text
+            )
             inputs = self.tokenizer(
                 prompt_text,
                 return_tensors="pt",
             )
         elif type(input_text) is str:
-            prompt_text = PROMPT_FOR_GENERATION_FORMAT.format(instruction=instruction_text, input=input_text)
+            prompt_text = PROMPT_FOR_GENERATION_FORMAT.format(
+                instruction=instruction_text, input=input_text
+            )
             inputs = self.tokenizer(
                 prompt_text,
                 return_tensors="pt",
             )
         elif type(input_text) is list:
-            prompt_text = PROMPT_FOR_GENERATION_FORMAT.format(instruction=instruction_text, input=CXR_VQ_VQ_REPLACE_TEMPLATE)
+            prompt_text = PROMPT_FOR_GENERATION_FORMAT.format(
+                instruction=instruction_text, input=CXR_VQ_VQ_REPLACE_TEMPLATE
+            )
             inputs = self.tokenizer(
                 prompt_text,
                 return_tensors="pt",
@@ -137,7 +176,11 @@ class InstructionTextGenerationPipeline(Pipeline):
             assert len(inputs["input_ids"]) == 1
             assert len(inputs["attention_mask"]) == 1
             assert torch.all(inputs["attention_mask"])
-            inputs["input_ids"] = torch.tensor(get_inject_vq_fun(self.tokenizer)(inputs["input_ids"][0].numpy().tolist(), input_text))[None, ...]
+            inputs["input_ids"] = torch.tensor(
+                get_inject_vq_fun(self.tokenizer)(
+                    inputs["input_ids"][0].numpy().tolist(), input_text
+                )
+            )[None, ...]
             inputs["attention_mask"] = torch.ones_like(inputs["input_ids"])
 
         inputs["instruction_text"] = instruction_text
@@ -163,17 +206,31 @@ class InstructionTextGenerationPipeline(Pipeline):
 
         out_b = generated_sequence.shape[0]
         if self.framework == "pt":
-            generated_sequence = generated_sequence.reshape(in_b, out_b // in_b, *generated_sequence.shape[1:])
+            generated_sequence = generated_sequence.reshape(
+                in_b, out_b // in_b, *generated_sequence.shape[1:]
+            )
         elif self.framework == "tf":
-            generated_sequence = tf.reshape(generated_sequence, (in_b, out_b // in_b, *generated_sequence.shape[1:]))
-        
+            generated_sequence = tf.reshape(
+                generated_sequence, (in_b, out_b // in_b, *generated_sequence.shape[1:])
+            )
+
         vq = get_extract_vq_fun(self.tokenizer)(generated_sequence)
 
         instruction_text = model_inputs.pop("instruction_text")
-        return {"generated_sequence": generated_sequence, "generated_vq": vq, "input_ids": input_ids, "instruction_text": instruction_text}
+        return {
+            "generated_sequence": generated_sequence,
+            "generated_vq": vq,
+            "input_ids": input_ids,
+            "instruction_text": instruction_text,
+        }
 
-    def postprocess(self, model_outputs, response_key_token_id, end_key_token_id, return_full_text: bool = False):
-
+    def postprocess(
+        self,
+        model_outputs,
+        response_key_token_id,
+        end_key_token_id,
+        return_full_text: bool = False,
+    ):
         generated_sequence = model_outputs["generated_sequence"][0]
         generated_vq = model_outputs["generated_vq"]
         instruction_text = model_outputs["instruction_text"]
@@ -181,7 +238,6 @@ class InstructionTextGenerationPipeline(Pipeline):
         generated_sequence: List[List[int]] = generated_sequence.numpy().tolist()
         records = []
         for sequence in generated_sequence:
-
             # The response will be set to this variable if we can identify it.
             decoded = None
 
@@ -192,7 +248,9 @@ class InstructionTextGenerationPipeline(Pipeline):
                 try:
                     response_pos = sequence.index(response_key_token_id)
                 except ValueError:
-                    logger.warn(f"Could not find response key {response_key_token_id} in: {sequence}")
+                    logger.warn(
+                        f"Could not find response key {response_key_token_id} in: {sequence}"
+                    )
                     response_pos = None
 
                 if response_pos:
@@ -205,7 +263,9 @@ class InstructionTextGenerationPipeline(Pipeline):
                     except ValueError:
                         end_pos = None
 
-                    decoded = self.tokenizer.decode(sequence[response_pos + 1 : end_pos]).strip()
+                    decoded = self.tokenizer.decode(
+                        sequence[response_pos + 1 : end_pos]
+                    ).strip()
 
             if not decoded:
                 # Otherwise we'll decode everything and use a regex to find the response and end.
@@ -214,14 +274,18 @@ class InstructionTextGenerationPipeline(Pipeline):
 
                 # The response appears after "### Response:".  The model has been trained to append "### End" at the
                 # end.
-                m = re.search(r"#+\s*Response:\s*(.+?)#+\s*End", fully_decoded, flags=re.DOTALL)
+                m = re.search(
+                    r"#+\s*Response:\s*(.+?)#+\s*End", fully_decoded, flags=re.DOTALL
+                )
 
                 if m:
                     decoded = m.group(1).strip()
                 else:
                     # The model might not generate the "### End" sequence before reaching the max tokens.  In this case,
                     # return everything after "### Response:".
-                    m = re.search(r"#+\s*Response:\s*(.+)", fully_decoded, flags=re.DOTALL)
+                    m = re.search(
+                        r"#+\s*Response:\s*(.+)", fully_decoded, flags=re.DOTALL
+                    )
                     if m:
                         decoded = m.group(1).strip()
                     else:
@@ -238,7 +302,6 @@ class InstructionTextGenerationPipeline(Pipeline):
             records.append(rec)
 
         return records
-    
 
 
 def generate_response(
@@ -260,6 +323,8 @@ def generate_response(
         str: response
     """
 
-    generation_pipeline = InstructionTextGenerationPipeline(model=model, tokenizer=tokenizer, **kwargs)
+    generation_pipeline = InstructionTextGenerationPipeline(
+        model=model, tokenizer=tokenizer, **kwargs
+    )
     out = generation_pipeline(instruction)[0]
     return out["generated_text"], out["generated_vq"]

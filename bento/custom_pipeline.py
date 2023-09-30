@@ -10,13 +10,13 @@ from transformers import PreTrainedTokenizer, Pipeline
 if is_tf_available():
     import tensorflow as tf
 
-from .consts import (
+from consts import (
     END_KEY,
     PROMPT_FOR_GENERATION_FORMAT,
     PROMPT_FOR_GENERATION_FORMAT_NOINPUT,
     RESPONSE_KEY,
 )
-from .mimiccxr_vq_dataset import (
+from mimiccxr_vq_dataset import (
     get_extract_vq_fun,
     get_inject_vq_fun,
     CXR_VQ_VQ_REPLACE_TEMPLATE,

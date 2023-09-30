@@ -1,21 +1,27 @@
-from __future__ import annotations
-
+from typing import Any, List
 import bentoml
-import openllm
+from pydantic import BaseModel
+from bentoml.io import JSON
+import numpy as np
 
-model = "dolly-v2"
+llm_runner = bentoml.models.get("llm_cxr_qa:latest").to_runner()
 
-llm_runner = openllm.Runner(model)
-
-svc = bentoml.Service(name="llm-cxr-service", runners=[llm_runner])
-
-
-@svc.on_startup
-def download(_: bentoml.Context):
-    llm_runner.download_model()
+svc = bentoml.Service(name="llm_cxr_qa", runners=[llm_runner])
 
 
-@svc.api(input=bentoml.io.Text(), output=bentoml.io.Text())
-async def prompt(input_text: str) -> str:
-    answer = await llm_runner.generate.async_run(input_text)
-    return answer[0]["generated_text"]
+class LLMCXRResponseDTO(BaseModel):
+    generated_text: str
+    generated_vq: List[Any]
+
+    class Config:
+        extra = "forbid"
+        arbitrary_types_allowed = True
+
+
+@svc.api(input=bentoml.io.Text(), output=JSON(pydantic_model=LLMCXRResponseDTO))
+async def generate(text: str) -> str:
+    generated = await llm_runner.async_run(text, max_length=3000)
+    return LLMCXRResponseDTO(
+        generated_text=generated[0]["generated_text"],
+        generated_vq=generated[0]["generated_vq"].tolist(),
+    )

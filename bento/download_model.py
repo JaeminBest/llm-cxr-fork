@@ -22,12 +22,13 @@ SUPPORTED_TASKS[TASK_NAME] = TASK_DEFINITION
 checkpoint_path = "ckpt/checkpoint-v3-12804s-1e+v2-2e"
 print("initialize model start")
 qa = InstructionTextGenerationPipeline(
-    model=AutoModelForCausalLM(
+    model=AutoModelForCausalLM.from_pretrained(
         checkpoint_path,
         device_map="auto",
         torch_dtype=torch.bfloat16,
         trust_remote_code=True,
     ),
+    task="llm-cxr-qa",
     tokenizer=AutoTokenizer.from_pretrained(checkpoint_path, padding_side="left"),
 )
 
