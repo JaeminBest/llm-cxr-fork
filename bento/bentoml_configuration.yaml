@@ -1,0 +1,13 @@
+version: 1
+api_server:
+  workers: 4
+runners:
+  llm_runner:
+    resources:
+      nvidia.com/gpu: [0, 1]
+  vq_decoder_runner:
+    resources:
+      nvidia.com/gpu: [2]
+  vq_encoder_runner:
+    resources:
+      nvidia.com/gpu: [3]

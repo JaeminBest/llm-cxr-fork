@@ -28,3 +28,7 @@ dolly__*
 /data/mimic-cxr-jpg/i2t_qna
 /data/mimic-cxr-jpg/mimic-cxr-2.0.0-metadata.csv
 /data/mimic-cxr-jpg/mimic-cxr-2.0.0-split.csv
+
+*.pt
+*.pth
+*.png

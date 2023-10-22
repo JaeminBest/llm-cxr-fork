@@ -204,9 +204,11 @@ def _find_vq_replace_token_idx(input_ids: List[int], vq_replace_token_ids: List[
 def get_inject_vq_fun(tokenizer):
     replace_tokens = tokenizer(CXR_VQ_VQ_REPLACE_TEMPLATE)["input_ids"]
 
-    def inject_vq(input_ids: List[int], cxr_vq_shifted: List[int]) -> List[int]:
+    def inject_vq(input_ids: List[int], cxr_vq_unshifted: List[int]) -> List[int]:
+        assert len(tokenizer) == CXR_VQ_TOKENIZER_LEN
+        cxr_vq_shifted = [token + len(tokenizer) for token in cxr_vq_unshifted]
         assert len(cxr_vq_shifted) == CXR_VQ_VQ_LEN
-        assert max(cxr_vq_shifted) >= CXR_VQ_TOKENIZER_LEN
+        assert max(cxr_vq_shifted) >= CXR_VQ_TOKENIZER_LEN, max(cxr_vq_shifted)
 
         first_idx = _find_vq_replace_token_idx(input_ids, replace_tokens)
         second_idx = _find_vq_replace_token_idx(

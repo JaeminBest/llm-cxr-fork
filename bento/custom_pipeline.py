@@ -135,7 +135,7 @@ class InstructionTextGenerationPipeline(Pipeline):
                 prompt_text,
                 return_tensors="pt",
             )
-        elif type(input_text) is list:
+        elif type(input_text) is list or isinstance(input_text, torch.Tensor):
             prompt_text = PROMPT_FOR_GENERATION_FORMAT.format(
                 instruction=instruction_text, input=CXR_VQ_VQ_REPLACE_TEMPLATE
             )
@@ -149,7 +149,7 @@ class InstructionTextGenerationPipeline(Pipeline):
             assert torch.all(inputs["attention_mask"])
             inputs["input_ids"] = torch.tensor(
                 get_inject_vq_fun(self.tokenizer)(
-                    inputs["input_ids"][0].numpy().tolist(), input_text
+                    inputs["input_ids"][0].cpu().numpy().tolist(), input_text.cpu()
                 )
             )[None, ...]
             inputs["attention_mask"] = torch.ones_like(inputs["input_ids"])
